@@ -12,29 +12,40 @@ interface PageInfo {
 const Popup: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check authentication status
-    auth.onAuthStateChanged((user: User | null) => {
+    const unsubscribe = auth.onAuthStateChanged((user: User | null) => {
       setUser(user);
     });
 
     // Get current page info
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs: chrome.tabs.Tab[]) => {
-      if (tabs[0]?.url) {
-        setPageInfo({
-          url: tabs[0].url,
-          title: tabs[0].title || ''
-        });
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      if (tabs[0]?.id) {
+        try {
+          const response = await chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_PAGE_INFO' });
+          setPageInfo(response);
+        } catch (error) {
+          console.error('Error getting page info:', error);
+          setError('Could not get page information. Please refresh the page and try again.');
+        }
       }
     });
+
+    return () => unsubscribe();
   }, []);
 
   const handleSignIn = async () => {
     try {
+      setLoading(true);
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error('Error signing in:', error);
+      setError('Failed to sign in. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -42,6 +53,7 @@ const Popup: React.FC = () => {
     if (!user || !pageInfo) return;
 
     try {
+      setLoading(true);
       await saveToStudyList({
         type: 'webpage',
         title: pageInfo.title,
@@ -51,15 +63,35 @@ const Popup: React.FC = () => {
       window.close();
     } catch (error) {
       console.error('Error saving to StudyList:', error);
+      setError('Failed to save to StudyList. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="p-4">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <p className="text-red-500">{error}</p>
+        <button onClick={() => setError(null)}>Try Again</button>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
       <div className="p-4">
         <h2>Please sign in to StudyList</h2>
         <button onClick={handleSignIn}>
-          Sign In
+          Sign In with Google
         </button>
       </div>
     );

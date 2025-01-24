@@ -10,7 +10,9 @@
     "identity"
   ],
   "host_permissions": [
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "https://*.firebaseapp.com/*",
+    "https://*.googleapis.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -41,5 +43,8 @@
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile"
     ]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
   }
 } 
