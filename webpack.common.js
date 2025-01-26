@@ -6,19 +6,29 @@ const Dotenv = require('dotenv-webpack');
 
 module.exports = {
   entry: {
-    popup: path.resolve('src/pages/popup/index.tsx'),
-    background: path.resolve('src/background/index.ts'),
-    content: path.resolve('src/content/index.ts'),
+    popup: path.join(__dirname, 'src/pages/popup/index.tsx'),
+    content: path.join(__dirname, 'src/content/index.ts'),
+    background: path.join(__dirname, 'src/background/index.ts'),
+  },
+  output: {
+    path: path.join(__dirname, 'dist'),
+    filename: '[name].js',
+  },
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      name: 'vendor'
+    }
   },
   module: {
     rules: [
       {
-        test: /\.tsx?$/,
+        test: /\.(ts|tsx)$/,
         use: 'ts-loader',
         exclude: /node_modules/,
       },
       {
-        test: /\.css$/i,
+        test: /\.css$/,
         use: ['style-loader', 'css-loader'],
       },
       {
@@ -28,12 +38,7 @@ module.exports = {
     ]
   },
   resolve: {
-    extensions: ['.tsx', '.ts', '.js'],
-  },
-  output: {
-    filename: '[name].js',
-    path: path.resolve(__dirname, 'dist'),
-    clean: true,
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
   },
   plugins: [
     new CopyPlugin({
@@ -56,31 +61,8 @@ module.exports = {
       chunks: ['popup'],
     }),
     new webpack.DefinePlugin({
-      'process.env': JSON.stringify({
-        apiKey: process.env.FIREBASE_API_KEY,
-        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.FIREBASE_APP_ID
-      })
+      'process.env': JSON.stringify(process.env)
     }),
     new Dotenv()
   ],
-  optimization: {
-    splitChunks: {
-      chunks: 'all',
-      maxInitialRequests: Infinity,
-      minSize: 0,
-      cacheGroups: {
-        vendor: {
-          test: /[\\/]node_modules[\\/]/,
-          name(module) {
-            const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
-            return `vendor.${packageName.replace('@', '')}`;
-          },
-        },
-      },
-    },
-  }
 }; 
