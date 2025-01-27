@@ -23,12 +23,13 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-interface StudyMaterial {
-  type: 'webpage' | 'video' | 'book' | 'podcast';
-  title: string;
-  url: string;
-  userId: string;
-}
+export interface StudyMaterial {
+    type: 'webpage' | 'video' | 'book' | 'podcast';
+    title: string;
+    url: string;
+    userId: string;
+    dateAdded?: string;
+  }
 
 export const getUserData = async (uid: string) => {
   try {
@@ -63,10 +64,34 @@ export const getUserData = async (uid: string) => {
 
 export const saveToStudyList = async (material: StudyMaterial) => {
   try {
-    const response = await api.post('/materials', material);
+    console.log('Attempting to save material...');
+    const user = auth.currentUser;
+    if (!user) throw new Error('No user logged in');
+
+    const token = await user.getIdToken();
+    console.log('Auth token available:', !!token);
+    
+    const materialData = {
+      type: material.type,
+      title: material.title,
+      url: material.url || '',
+      rating: 5, // 預設評分
+      dateAdded: material.dateAdded || new Date().toISOString()
+    };
+
+    console.log('Sending material data:', materialData);
+    
+    const response = await api.post(`/users/${user.uid}/materials`, materialData);
+    console.log('Save response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error saving to StudyList:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('Response data:', error.response?.data);
+      console.error('Response status:', error.response?.status);
+      console.error('Request URL:', error.config?.url);
+      console.error('Request data:', error.config?.data);
+    }
     throw error;
   }
 };

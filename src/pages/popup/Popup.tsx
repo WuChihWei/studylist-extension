@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { User, signOut } from 'firebase/auth';
 import { auth } from '../../utils/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { saveToStudyList, getUserData } from '../../utils/api';
+import { saveToStudyList, getUserData, StudyMaterial } from '../../utils/api';
 
 interface PageInfo {
   url: string;
@@ -27,12 +27,15 @@ const Popup: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newMaterialTitle, setNewMaterialTitle] = useState('');
+  const [newMaterialType, setNewMaterialType] = useState<'webpage' | 'video' | 'book' | 'podcast'>('webpage');
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       console.log('Auth state changed:', user?.uid);
       if (user) {
         setUser(user);
+        localStorage.setItem('isLoggedIn', 'true');
         try {
           console.log('Attempting to fetch user data...');
           const data = await getUserData(user.uid);
@@ -42,8 +45,11 @@ const Popup: React.FC = () => {
           console.error('Error in useEffect:', error);
         }
       } else {
-        setUser(null);
-        setUserData(null);
+        const isLoggedIn = localStorage.getItem('isLoggedIn');
+        if (!isLoggedIn) {
+          setUser(null);
+          setUserData(null);
+        }
       }
     });
 
@@ -52,9 +58,11 @@ const Popup: React.FC = () => {
         setError('No active tab found');
         return;
       }
-      
+
       try {
+        console.log('Sending message to content script...');
         const response = await chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_PAGE_INFO' });
+        console.log('Response from content script:', response);
         if (response) {
           setPageInfo(response);
         } else {
@@ -87,13 +95,16 @@ const Popup: React.FC = () => {
 
     try {
       setLoading(true);
-      await saveToStudyList({
-        type: 'webpage',
-        title: pageInfo.title,
+      const material: StudyMaterial = {
+        type: 'webpage' as const,
+        title: `Website: ${pageInfo.title}`,
         url: pageInfo.url,
         userId: user.uid
-      });
-      window.close();
+      };
+      
+      await saveToStudyList(material);
+      setError('Successfully saved to StudyList!');
+      setTimeout(() => setError(null), 2000);
     } catch (error) {
       console.error('Error saving to StudyList:', error);
       setError('Failed to save to StudyList. Please try again.');
@@ -105,6 +116,7 @@ const Popup: React.FC = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      localStorage.removeItem('isLoggedIn');
       setUser(null);
       setUserData(null);
       setPageInfo(null);
@@ -115,19 +127,40 @@ const Popup: React.FC = () => {
     }
   };
 
+  const handleAddMaterial = async () => {
+    if (!user || !newMaterialTitle) return;
+
+    try {
+      setLoading(true);
+      const material: StudyMaterial = {
+        type: newMaterialType,
+        title: newMaterialTitle,
+        url: '',
+        userId: user.uid,
+        dateAdded: new Date().toISOString()
+      };
+      
+      console.log('Saving material:', material);
+      const result = await saveToStudyList(material);
+      console.log('Save result:', result);
+      
+      setNewMaterialTitle('');
+      const updatedData = await getUserData(user.uid);
+      setUserData(updatedData);
+      setError('Successfully added material!');
+      setTimeout(() => setError(null), 2000);
+    } catch (error: any) {
+      console.error('Error adding material:', error);
+      setError(error.message || 'Failed to add material. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-4">
         <p>Loading...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4">
-        <p className="text-red-500">{error}</p>
-        <button onClick={() => setError(null)}>Try Again</button>
       </div>
     );
   }
@@ -168,22 +201,48 @@ const Popup: React.FC = () => {
     );
   }
 
+  console.log('Current pageInfo:', pageInfo);
+
   return (
     <div className="p-4">
-      <h2>Welcome, {userData?.name}</h2>
-      <button onClick={handleLogout} className="p-2 bg-red-500 text-white rounded">
-        Logout
-      </button>
+      <div className='flex'>
+        <h3>Welcome, {userData?.name}</h3>
+        <button onClick={handleLogout} className="p-2 bg-red-500 text-white rounded">
+          Logout
+        </button>
+      </div>
+      {error && (
+        <div className="mt-2 p-2 bg-red-100 text-red-600 rounded">
+          {error}
+        </div>
+      )}
       <div className="mt-4">
         <h3>Import Material</h3>
         <div className="flex gap-2">
-          <input type="text" placeholder="Material Title" className="flex-1 p-2 border rounded" />
-          <select className="p-2 border rounded">
+          <input
+            type="text"
+            placeholder="Material Title"
+            className="flex-1 p-2 border rounded"
+            value={newMaterialTitle}
+            onChange={(e) => setNewMaterialTitle(e.target.value)}
+          />
+          <select
+            className="p-2 border rounded"
+            value={newMaterialType}
+            onChange={(e) => setNewMaterialType(e.target.value as StudyMaterial['type'])}
+          >
+            <option value="webpage">Webpage</option>
             <option value="book">Book</option>
             <option value="video">Video</option>
             <option value="podcast">Podcast</option>
           </select>
-          <button className="p-2 bg-green-500 text-white rounded">Add Material</button>
+          <button
+            className="p-2 bg-green-500 text-white rounded"
+            onClick={handleAddMaterial}
+            disabled={loading || !newMaterialTitle}
+          >
+            Add Material
+          </button>
         </div>
       </div>
       <div className="mt-4">
@@ -197,11 +256,10 @@ const Popup: React.FC = () => {
         ))}
       </div>
       <div className="mt-4">
-        <h3>Save to StudyList</h3>
         {pageInfo && (
           <div>
             <p>{pageInfo.title}</p>
-            <button onClick={handleSave}>
+            <button className="p-2 bg-green-500 text-white rounded" onClick={handleSave}>
               Save
             </button>
           </div>
