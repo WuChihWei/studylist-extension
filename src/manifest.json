@@ -3,17 +3,13 @@
   "name": "StudyList Extension",
   "version": "1.0.0",
   "description": "Save study materials directly from web pages to your StudyList account",
-  "permissions": [
+   "permissions": [
     "storage",
     "activeTab",
-    "scripting",
-    "identity"
+    "tabs"
   ],
   "host_permissions": [
-    "http://localhost:3000/*",
-    "http://localhost:5001/*",
-    "https://*.firebaseapp.com/*",
-    "https://*.googleapis.com/*"
+    "http://localhost:3001/*"
   ],
   "background": {
     "service_worker": "background.js",

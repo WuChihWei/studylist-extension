@@ -1,269 +1,225 @@
 import React, { useEffect, useState } from 'react';
-import { User, signOut } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import { auth } from '../../utils/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { saveToStudyList, getUserData, StudyMaterial } from '../../utils/api';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { saveToStudyList, getUserData } from '../../utils/api';
 
-interface PageInfo {
-  url: string;
+interface Material {
+  type: 'webpage' | 'video' | 'book';
   title: string;
+  url: string;
+  userId: string;
+  dateAdded: string;
 }
 
-interface UserData {
-  name: string;
-  email: string;
-  materials: {
-    type: string;
-    title: string;
-    rating?: number;
-  }[];
-}
+const getMaterialTypeFromUrl = (url: string): 'webpage' | 'video' | 'book' => {
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    return 'video';
+  } else if (url.includes('medium.com')) {
+    return 'book';
+  }
+  return 'webpage';
+};
 
 const Popup: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [newMaterialTitle, setNewMaterialTitle] = useState('');
-  const [newMaterialType, setNewMaterialType] = useState<'webpage' | 'video' | 'book' | 'podcast'>('webpage');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [materialTitle, setMaterialTitle] = useState('');
+  const [materialType, setMaterialType] = useState<'webpage' | 'video' | 'book'>('webpage');
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [currentUrl, setCurrentUrl] = useState('');
+  const [pageInfo, setPageInfo] = useState<{ title: string; url: string } | null>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      console.log('Auth state changed:', user?.uid);
+      setUser(user);
       if (user) {
-        setUser(user);
-        localStorage.setItem('isLoggedIn', 'true');
-        try {
-          console.log('Attempting to fetch user data...');
-          const data = await getUserData(user.uid);
-          console.log('Received user data:', data);
-          setUserData(data);
-        } catch (error) {
-          console.error('Error in useEffect:', error);
-        }
-      } else {
-        const isLoggedIn = localStorage.getItem('isLoggedIn');
-        if (!isLoggedIn) {
-          setUser(null);
-          setUserData(null);
-        }
-      }
-    });
-
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      if (!tabs[0]?.id) {
-        setError('No active tab found');
-        return;
-      }
-
-      try {
-        console.log('Sending message to content script...');
-        const response = await chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_PAGE_INFO' });
-        console.log('Response from content script:', response);
-        if (response) {
-          setPageInfo(response);
-        } else {
-          setError('No response from content script');
-        }
-      } catch (error) {
-        console.error('Error getting page info:', error);
-        setError('Could not get page information. Please refresh the page and try again.');
+        const data = await getUserData(user.uid);
+        setMaterials(data.materials || []);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (error) {
-      console.error('Error signing in:', error);
-      setError('Invalid email or password');
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    const getCurrentPageInfo = () => {
+      console.log('Getting current page info...');
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        console.log('Current tab:', tabs[0]?.url);
+        if (tabs[0]?.id) {
+          try {
+            chrome.tabs.sendMessage(
+              tabs[0].id,
+              { type: 'GET_PAGE_INFO' },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  console.log('Chrome runtime error:', chrome.runtime.lastError);
+                  // 如果出錯，至少設置 URL
+                  if (tabs[0]?.url) {
+                    setCurrentUrl(tabs[0].url);
+                    setMaterialType(getMaterialTypeFromUrl(tabs[0].url));
+                    // 從 URL 中提取標題
+                    const urlTitle = tabs[0].title || tabs[0].url.split('/').pop() || '';
+                    setMaterialTitle(urlTitle);
+                  }
+                  return;
+                }
+                
+                if (response) {
+                  console.log('Received page info:', response);
+                  setPageInfo(response);
+                  setMaterialTitle(response.title || '');
+                  setCurrentUrl(response.url);
+                  setMaterialType(getMaterialTypeFromUrl(response.url));
+                }
+              }
+            );
+          } catch (error) {
+            console.error('Error sending message:', error);
+          }
+        }
+      });
+    };
+
+    // 初始調用
+    getCurrentPageInfo();
+
+    // 監聽標籤頁更新
+    const tabUpdateListener = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
+      console.log('Tab updated:', { tabId, changeInfo, url: tab.url });
+      if (changeInfo.status === 'complete' || changeInfo.title) {
+        getCurrentPageInfo();
+      }
+    };
+
+    // 添加標籤頁更新監聽器
+    chrome.tabs.onUpdated.addListener(tabUpdateListener);
+    
+    // 監聽標籤頁切換
+    chrome.tabs.onActivated.addListener(getCurrentPageInfo);
+
+    return () => {
+      chrome.tabs.onUpdated.removeListener(tabUpdateListener);
+      chrome.tabs.onActivated.removeListener(getCurrentPageInfo);
+    };
+  }, []);
+
+  const handleHomeClick = () => {
+    window.open('http://localhost:3001/profile', '_blank');
   };
 
-  const handleSave = async () => {
-    if (!user || !pageInfo) return;
-
+  const handleAddMaterial = async () => {
+    if (!user || !materialTitle || !currentUrl) return;
+    
     try {
-      setLoading(true);
-      const material: StudyMaterial = {
-        type: 'webpage' as const,
-        title: `Website: ${pageInfo.title}`,
-        url: pageInfo.url,
-        userId: user.uid
+      const material = {
+        type: materialType,
+        title: materialTitle,
+        url: currentUrl,
+        userId: user.uid,
+        dateAdded: new Date().toISOString()
       };
       
       await saveToStudyList(material);
-      setError('Successfully saved to StudyList!');
-      setTimeout(() => setError(null), 2000);
+      const updatedData = await getUserData(user.uid);
+      setMaterials(updatedData.materials.map((m: Material) => ({
+        ...m,
+        url: m.url || ''
+      })));
+      
+      // Reset form
+      setMaterialTitle('');
+      setCurrentUrl('');
     } catch (error) {
-      console.error('Error saving to StudyList:', error);
-      setError('Failed to save to StudyList. Please try again.');
-    } finally {
-      setLoading(false);
+      console.error('Error adding material:', error);
     }
   };
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      localStorage.removeItem('isLoggedIn');
-      setUser(null);
-      setUserData(null);
-      setPageInfo(null);
-      setError(null);
+      setShowDropdown(false);
     } catch (error) {
       console.error('Error signing out:', error);
-      setError('Failed to log out. Please try again.');
     }
   };
 
-  const handleAddMaterial = async () => {
-    if (!user || !newMaterialTitle) return;
-
-    try {
-      setLoading(true);
-      const material: StudyMaterial = {
-        type: newMaterialType,
-        title: newMaterialTitle,
-        url: '',
-        userId: user.uid,
-        dateAdded: new Date().toISOString()
-      };
-      
-      console.log('Saving material:', material);
-      const result = await saveToStudyList(material);
-      console.log('Save result:', result);
-      
-      setNewMaterialTitle('');
-      const updatedData = await getUserData(user.uid);
-      setUserData(updatedData);
-      setError('Successfully added material!');
-      setTimeout(() => setError(null), 2000);
-    } catch (error: any) {
-      console.error('Error adding material:', error);
-      setError(error.message || 'Failed to add material. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const handleTitleClick = (url: string) => {
+    // Open the URL in a new tab
+    chrome.tabs.create({ url: url });
   };
-
-  if (loading) {
-    return (
-      <div className="p-4">
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div style={{
-        padding: '20px',
-        minWidth: '300px',
-        minHeight: '200px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px'
-      }}>
-        <h2 style={{
-          fontSize: '18px',
-          fontWeight: '600',
-          margin: '0 0 16px 0'
-        }}>Sign in to StudyList</h2>
-        <form onSubmit={handleSignIn} style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button type="submit">
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-      </div>
-    );
-  }
-
-  console.log('Current pageInfo:', pageInfo);
 
   return (
-    <div className="p-4">
-      <div className='flex'>
-        <h3>Welcome, {userData?.name}</h3>
-        <button onClick={handleLogout} className="p-2 bg-red-500 text-white rounded">
-          Logout
+    <div>
+      <div className="navbar">
+        <div onClick={handleHomeClick} style={{cursor: 'pointer'}}>
+          <svg className="home-icon" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+          </svg>
+        </div>
+        <div onClick={() => setShowDropdown(!showDropdown)} style={{position: 'relative'}}>
+          <svg className="menu-icon" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+          </svg>
+          {showDropdown && (
+            <div className="dropdown">
+              {user ? (
+                <button onClick={handleLogout}>Logout</button>
+              ) : (
+                <button onClick={() => window.open('http://localhost:3001/login', '_blank')}>
+                  Login
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="section">
+        <input
+          className="material-input"
+          placeholder="Material Title"
+          value={materialTitle}
+          onChange={(e) => setMaterialTitle(e.target.value)}
+        />
+        <select
+          className="material-input"
+          value={materialType}
+          onChange={(e) => setMaterialType(e.target.value as any)}
+        >
+          <option value="webpage">Website</option>
+          <option value="book">Book</option>
+          <option value="video">Video</option>
+        </select>
+        <button 
+          className="add-button" 
+          onClick={handleAddMaterial}
+          disabled={!materialTitle || !user}
+        >
+          Add
         </button>
-      </div>
-      {error && (
-        <div className="mt-2 p-2 bg-red-100 text-red-600 rounded">
-          {error}
-        </div>
-      )}
-      <div className="mt-4">
-        <h3>Import Material</h3>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Material Title"
-            className="flex-1 p-2 border rounded"
-            value={newMaterialTitle}
-            onChange={(e) => setNewMaterialTitle(e.target.value)}
-          />
-          <select
-            className="p-2 border rounded"
-            value={newMaterialType}
-            onChange={(e) => setNewMaterialType(e.target.value as StudyMaterial['type'])}
-          >
-            <option value="webpage">Webpage</option>
-            <option value="book">Book</option>
-            <option value="video">Video</option>
-            <option value="podcast">Podcast</option>
-          </select>
-          <button
-            className="p-2 bg-green-500 text-white rounded"
-            onClick={handleAddMaterial}
-            disabled={loading || !newMaterialTitle}
-          >
-            Add Material
-          </button>
-        </div>
-      </div>
-      <div className="mt-4">
-        <h3>Your Materials</h3>
-        {userData?.materials.map((material, index) => (
-          <div key={index} className="p-2 border rounded mb-2">
-            <p>{material.title}</p>
-            <p>Type: {material.type}</p>
-            {material.rating && <p>Rating: {material.rating}</p>}
+
+        {['webpage', 'book', 'video'].map(type => (
+          <div key={type} className="section">
+            <div className="section-title">
+              {type.charAt(0).toUpperCase() + type.slice(1)}
+            </div>
+            {materials
+              .filter(m => m.type === type)
+              .map((material, index) => (
+                <div key={index} className="material-item">
+                  <span 
+                    className="material-link"
+                    onClick={() => handleTitleClick(material.url)}
+                    title={material.url}
+                  >
+                    {material.title} - {material.url}
+                  </span>
+                </div>
+              ))}
           </div>
         ))}
-      </div>
-      <div className="mt-4">
-        {pageInfo && (
-          <div>
-            <p>{pageInfo.title}</p>
-            <button className="p-2 bg-green-500 text-white rounded" onClick={handleSave}>
-              Save
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
