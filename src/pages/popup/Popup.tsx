@@ -3,6 +3,7 @@ import { User } from 'firebase/auth';
 import { auth } from '../../utils/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { saveToStudyList, getUserData } from '../../utils/api';
+import LoginSignup from './LoginSignup';
 
 interface Material {
   type: 'webpage' | 'video' | 'book';
