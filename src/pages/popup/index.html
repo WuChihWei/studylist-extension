@@ -12,18 +12,26 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background-color: #ffffff;
       }
-      
+
+      .popup-container {
+        width: 350px;
+        min-height: 600px;
+        background: white;
+        border-radius: 20px;
+
+      }
+
       .navbar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 16px;
+        padding: 8px;
         border-bottom: 1px solid #eee;
       }
 
       .home-icon {
-        width: 24px;
-        height: 24px;
+        width: 30px;
+        height: 30px;
         color: #2196f3;
       }
 
@@ -33,12 +41,60 @@
         cursor: pointer;
       }
 
-      .material-input {
-        width: 100%;
-        padding: 12px;
+      .add-material-container {
+        padding: 0 16px 16px 16px;
+      }
+
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .title-input-container {
+        display: flex;
+        align-items: center;
+        position: relative;
+        background: white;
         border: 1px solid #eee;
         border-radius: 8px;
-        margin: 16px 0;
+        padding: 0 12px;
+      }
+
+      .plus-icon {
+        font-size: 20px;
+        color: #2196f3;
+        margin-right: 8px;
+        transition: opacity 0.2s;
+      }
+
+      .plus-icon:hover {
+        opacity: 0.8;
+      }
+
+      .globe-icon {
+        cursor: pointer;
+        font-size: 20px;
+        margin-left: 8px;
+      }
+
+      .material-input {
+        flex: 1;
+        padding: 12px 0;
+        border: none;
+        outline: none;
+        font-size: 12px;
+        background: transparent;
+      }
+
+      .material-input:focus {
+        outline: none;
+      }
+
+      select.material-input {
+        padding: 12px;
+        border: 1px solid #eee;
+        background: white;
       }
 
       .add-button {
@@ -50,25 +106,80 @@
         border-radius: 8px;
         cursor: pointer;
         font-size: 16px;
+        font-weight: 600;
+      }
+
+      .add-button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
       }
 
       .section {
         padding: 16px;
+        /* margin-bottom: 16px; */
+        /* border: 1px solid #eee; */
+        /* border-radius: 12px; */
+        /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); */
+        background: white;
       }
 
       .section-title {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 8px;
-        font-size: 18px;
+        font-size: 12px;
         margin-bottom: 12px;
+        color: #333;
+        font-weight: 500;
+      }
+
+      .title-with-icon {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .material-count {
+        color: #666;
+        font-size: 12px;
+        font-weight: 400;
       }
 
       .material-item {
         margin-bottom: 8px;
-        padding: 4px;
-        border-radius: 4px;
+        padding: 12px;
+        border-radius: 8px;
         background-color: #f5f5f5;
+        transition: background-color 0.2s;
+      }
+
+      .material-item:hover {
+        background-color: #e3f2fd;
+      }
+
+      .material-link {
+        color: #333;
+        text-decoration: none;
+        cursor: pointer;
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .material-url {
+        color: #666;
+        font-size: 12px;
+        margin-top: 4px;
+        display: block;
+      }
+
+      .material-link:hover {
+        background-color: rgba(33, 150, 243, 0.1);
+        border-radius: 4px;
       }
 
       .dropdown {
@@ -82,29 +193,109 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       }
 
-      .material-link {
-        color: #2196f3;
-        text-decoration: underline;
-        cursor: pointer;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 100%;
-        display: block;
-        padding: 8px;
-        font-size: 14px;
+      input::placeholder {
+        color: #9CA3AF;
       }
 
-      .material-url {
-        color: #666;
-        font-size: 12px;
+      .material-card {
+        transition: background-color 0.2s;
+      }
+
+      .material-card:hover {
+        background-color: #F3F4F6;
+      }
+
+      .material-type-selector {
+        position: relative;
+      }
+
+      .type-dropdown {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: white;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
         margin-top: 4px;
-        display: block;
       }
 
-      .material-link:hover {
-        background-color: rgba(33, 150, 243, 0.1);
-        border-radius: 4px;
+      .type-dropdown div {
+        padding: 8px 16px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background-color 0.2s;
+      }
+
+      .type-dropdown div:hover {
+        background-color: #f5f5f5;
+      }
+
+      .material-list {
+        max-height: 140px;
+        overflow-y: auto;
+        /* margin: 0;
+        padding: 0; */
+        scrollbar-width:inherit;
+        scrollbar-color: #2196f3 #f5f5f5;
+        margin-bottom: 16px;
+        border: 1px solid #eee;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05)
+      }
+
+      .material-list::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .material-list::-webkit-scrollbar-track {
+        background: #f5f5f5;
+        border-radius: 3px;
+      }
+
+      .material-list::-webkit-scrollbar-thumb {
+        background-color: #2196f3;
+        border-radius: 3px;
+      }
+
+      .topic-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 16px 8px 16px;
+      }
+
+      .topic-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+      }
+
+      .topic-name h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin: 0;
+        color: #333;
+      }
+
+      .dropdown-arrow {
+        font-size: 12px;
+        color: #666;
+      }
+
+      .edit-button {
+        background: none;
+        border: none;
+        color: #666;
+        font-size: 14px;
+        cursor: pointer;
+        padding: 4px 8px;
+      }
+
+      .edit-button:hover {
+        color: #333;
       }
     </style>
   </head>

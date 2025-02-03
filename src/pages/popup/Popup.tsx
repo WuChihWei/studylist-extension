@@ -6,14 +6,14 @@ import { saveToStudyList, getUserData } from '../../utils/api';
 import LoginSignup from './LoginSignup';
 
 interface Material {
-  type: 'webpage' | 'video' | 'book';
+  type: 'webpage' | 'video' | 'book' | 'podcast';
   title: string;
   url: string;
   userId: string;
   dateAdded: string;
 }
 
-const getMaterialTypeFromUrl = (url: string): 'webpage' | 'video' | 'book' => {
+const getMaterialTypeFromUrl = (url: string): 'webpage' | 'video' | 'book' | 'podcast' => {
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
     return 'video';
   } else if (url.includes('medium.com')) {
@@ -26,10 +26,12 @@ const Popup: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [materialTitle, setMaterialTitle] = useState('');
-  const [materialType, setMaterialType] = useState<'webpage' | 'video' | 'book'>('webpage');
+  const [materialType, setMaterialType] = useState<'webpage' | 'video' | 'book'  | 'podcast'>('webpage');
   const [materials, setMaterials] = useState<Material[]>([]);
   const [currentUrl, setCurrentUrl] = useState('');
   const [pageInfo, setPageInfo] = useState<{ title: string; url: string } | null>(null);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const [topicName, setTopicName] = useState('Topic Name');
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -107,7 +109,7 @@ const Popup: React.FC = () => {
   }, []);
 
   const handleHomeClick = () => {
-    window.open('http://localhost:3001/profile', '_blank');
+    window.open('http://localhost:3000/profile', '_blank');
   };
 
   const handleAddMaterial = async () => {
@@ -151,6 +153,21 @@ const Popup: React.FC = () => {
     chrome.tabs.create({ url: url });
   };
 
+  const handleTypeSelect = (type: 'webpage' | 'video' | 'book' | 'podcast') => {
+    setMaterialType(type);
+    setShowTypeDropdown(false);
+  };
+
+  const getMaterialIcon = (type: string) => {
+    switch(type) {
+      case 'webpage': return '🌐';
+      case 'book': return '📖';
+      case 'video': return '📹';
+      case 'podcast': return '🎧';
+      default: return '🌐';
+    }
+  };
+
   return (
     <div>
       <div className="navbar">
@@ -178,49 +195,78 @@ const Popup: React.FC = () => {
       </div>
 
       <div className="section">
-        <input
-          className="material-input"
-          placeholder="Material Title"
-          value={materialTitle}
-          onChange={(e) => setMaterialTitle(e.target.value)}
-        />
-        <select
-          className="material-input"
-          value={materialType}
-          onChange={(e) => setMaterialType(e.target.value as any)}
-        >
-          <option value="webpage">Website</option>
-          <option value="book">Book</option>
-          <option value="video">Video</option>
-        </select>
-        <button 
-          className="add-button" 
-          onClick={handleAddMaterial}
-          disabled={!materialTitle || !user}
-        >
-          Add
-        </button>
-
-        {['webpage', 'book', 'video'].map(type => (
-          <div key={type} className="section">
-            <div className="section-title">
-              {type.charAt(0).toUpperCase() + type.slice(1)}
-            </div>
-            {materials
-              .filter(m => m.type === type)
-              .map((material, index) => (
-                <div key={index} className="material-item">
-                  <span 
-                    className="material-link"
-                    onClick={() => handleTitleClick(material.url)}
-                    title={material.url}
-                  >
-                    {material.title} - {material.url}
-                  </span>
-                </div>
-              ))}
+        <div className="topic-header">
+          <div className="topic-name">
+            <h1>{topicName}</h1>
+            <span className="dropdown-arrow">▼</span>
           </div>
-        ))}
+          <button className="edit-button">Edit</button>
+        </div>
+        <div className="add-material-container">
+          <div className="input-group">
+            <div className="title-input-container">
+              <div 
+                className="plus-icon" 
+                onClick={handleAddMaterial}
+                style={{ cursor: user ? 'pointer' : 'not-allowed', opacity: user ? 1 : 0.5 }}
+              >
+                +
+              </div>
+              <input
+                className="material-input"
+                placeholder="Material Title"
+                value={materialTitle}
+                onChange={(e) => setMaterialTitle(e.target.value)}
+              />
+              <div className="material-type-selector">
+                <div 
+                  className="globe-icon" 
+                  onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+                >
+                  {getMaterialIcon(materialType)}
+                </div>
+                {showTypeDropdown && (
+                  <div className="type-dropdown">
+                    <div onClick={() => handleTypeSelect('webpage')}>🌐</div>
+                    <div onClick={() => handleTypeSelect('book')}>📖</div>
+                    <div onClick={() => handleTypeSelect('video')}>📹 </div>
+                    <div onClick={() => handleTypeSelect('podcast')}>🎧</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {['webpage', 'book', 'video', 'podcast'].map(type => {
+          const typeCount = materials.filter(m => m.type === type).length;
+          return (
+            <div key={type}>
+              <div className="section-title">
+                <span className="title-with-icon">
+                  {getMaterialIcon(type)} {type.charAt(0).toUpperCase() + type.slice(1)}
+                </span>
+                <span className="material-count">({typeCount})</span>
+              </div>
+              <div className="material-list">
+                {materials
+                  .filter(m => m.type === type)
+                  .sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
+                  .map((material, index) => (
+                    <div key={index} className="material-item">
+                      <span 
+                        className="material-link"
+                        onClick={() => handleTitleClick(material.url)}
+                        title={material.url}
+                      >
+                        {material.title}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
