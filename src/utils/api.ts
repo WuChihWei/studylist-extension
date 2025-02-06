@@ -24,12 +24,23 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
 });
 
 export interface StudyMaterial {
-    type: 'webpage' | 'video' | 'book' | 'podcast';
-    title: string;
-    url: string;
-    userId: string;
-    dateAdded?: string;
-  }
+  type: 'webpage' | 'video' | 'book' | 'podcast';
+  title: string;
+  url: string;
+  rating: number;
+  completed: boolean;
+  dateAdded: string;
+}
+
+interface Topic {
+  name: string;
+  categories: {
+    webpage: StudyMaterial[];
+    video: StudyMaterial[];
+    book: StudyMaterial[];
+    podcast: StudyMaterial[];
+  };
+}
 
 export const getUserData = async (uid: string) => {
   try {
@@ -52,7 +63,17 @@ export const getUserData = async (uid: string) => {
           email: user.email,
           name: user.displayName,
           firebaseUID: user.uid,
-          materials: []
+          bio: "Introduce yourself",
+          topics: [{
+            name: "Default Topic",
+            categories: {
+              webpage: [],
+              video: [],
+              book: [],
+              podcast: []
+            }
+          }],
+          contributions: []
         };
         const response = await api.post('/users', newUser);
         return response.data;
@@ -62,36 +83,43 @@ export const getUserData = async (uid: string) => {
   }
 };
 
-export const saveToStudyList = async (material: StudyMaterial) => {
+export const saveToStudyList = async (material: StudyMaterial, topicId: string) => {
   try {
-    console.log('Attempting to save material...');
     const user = auth.currentUser;
-    if (!user) throw new Error('No user logged in');
+    if (!user) {
+      throw new Error('No user logged in');
+    }
 
-    const token = await user.getIdToken();
-    console.log('Auth token available:', !!token);
+    const endpoint = `/users/${encodeURIComponent(user.uid)}/topics/${encodeURIComponent(topicId)}/materials`;
     
-    const materialData = {
+    const materialPayload = {
       type: material.type,
       title: material.title,
-      url: material.url || '',
-      rating: 5, // 預設評分
-      dateAdded: material.dateAdded || new Date().toISOString()
+      url: material.url,
+      rating: material.rating || 5,
+      completed: material.completed || false,
+      dateAdded: material.dateAdded
     };
 
-    console.log('Sending material data:', materialData);
+    console.log('Request details:', {
+      endpoint,
+      materialPayload
+    });
     
-    const response = await api.post(`/users/${user.uid}/materials`, materialData);
-    console.log('Save response:', response.data);
+    const response = await api.post(endpoint, materialPayload);
+
+    if (response.status !== 200) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+    
     return response.data;
   } catch (error) {
-    console.error('Error saving to StudyList:', error);
-    if (axios.isAxiosError(error)) {
-      console.error('Response data:', error.response?.data);
-      console.error('Response status:', error.response?.status);
-      console.error('Request URL:', error.config?.url);
-      console.error('Request data:', error.config?.data);
-    }
+    console.error('API call details:', {
+      error,
+      endpoint: API_URL,
+      material,
+      topicId
+    });
     throw error;
   }
 };

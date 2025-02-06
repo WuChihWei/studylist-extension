@@ -1,26 +1,66 @@
 import mongoose from 'mongoose';
 
-const userSchema = new mongoose.Schema({
-  email: {
+const materialSchema = new mongoose.Schema({
+  type: {
     type: String,
-    required: true,
-    unique: true,
+    enum: ['webpage', 'book', 'video', 'podcast'],
+    required: true
   },
-  name: String,
+  title: String,
+  url: String,
+  rating: Number,
+  completed: {
+    type: Boolean,
+    default: false
+  },
+  dateAdded: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const categorySchema = new mongoose.Schema({
+  webpage: [materialSchema],
+  video: [materialSchema],
+  book: [materialSchema],
+  podcast: [materialSchema]
+});
+
+const topicSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  categories: categorySchema,
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const userSchema = new mongoose.Schema({
   firebaseUID: {
     type: String,
     required: true,
-    unique: true,
+    unique: true
   },
-  materials: [{
-    type: {
-      type: String,
-      enum: ['webpage', 'video', 'book', 'podcast'],
-    },
-    title: String,
-    url: String,
-    rating: Number,
-  }],
+  name: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true
+  },
+  bio: {
+    type: String,
+    default: "Introduce yourself"
+  },
+  topics: [topicSchema],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 export default mongoose.models.User || mongoose.model('User', userSchema);

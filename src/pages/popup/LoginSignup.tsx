@@ -4,9 +4,15 @@ import { auth } from '../../utils/firebase';
 
 interface LoginSignupProps {
   onClose: () => void;
+  onRegisterClick: () => void;
+  onForgotPasswordClick: () => void;
 }
 
-const LoginSignup: React.FC<LoginSignupProps> = ({ onClose }) => {
+const LoginSignup: React.FC<LoginSignupProps> = ({ 
+  onClose, 
+  onRegisterClick, 
+  onForgotPasswordClick 
+}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,7 +22,6 @@ const LoginSignup: React.FC<LoginSignupProps> = ({ onClose }) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       if (userCredential.user) {
-        window.open('http://localhost:3000/profile', '_blank');
         onClose();
       }
     } catch (error: any) {
@@ -29,7 +34,6 @@ const LoginSignup: React.FC<LoginSignupProps> = ({ onClose }) => {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       if (result.user) {
-        window.open('http://localhost:3000/profile', '_blank');
         onClose();
       }
     } catch (error: any) {
@@ -79,7 +83,7 @@ const LoginSignup: React.FC<LoginSignupProps> = ({ onClose }) => {
 
       <button 
         className="register-button"
-        onClick={() => window.open('http://localhost:3000/register', '_blank')}
+        onClick={onRegisterClick}
       >
         Register
       </button>
@@ -87,7 +91,10 @@ const LoginSignup: React.FC<LoginSignupProps> = ({ onClose }) => {
       <a 
         href="#" 
         className="forgot-password"
-        onClick={() => window.open('http://localhost:3000/forgot-password', '_blank')}
+        onClick={(e) => {
+          e.preventDefault();
+          onForgotPasswordClick();
+        }}
       >
         Forgot Password
       </a>
