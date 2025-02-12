@@ -168,11 +168,20 @@ const Popup: React.FC = () => {
     try {
       const success = await addMaterial(material, selectedTopic._id);
       if (success) {
+        // 清空輸入欄位
         setMaterialTitle('');
         setCurrentUrl('');
+        
+        // 立即重新獲取最新數據
         if (user) {
           const data = await fetchUserData(user.uid);
           setTopics(data.topics);
+          
+          // 更新當前主題
+          const updatedCurrentTopic = data.topics.find((t: Topic) => t._id === selectedTopic._id);
+          if (updatedCurrentTopic) {
+            setCurrentTopic(updatedCurrentTopic);
+          }
         }
       }
     } catch (error) {

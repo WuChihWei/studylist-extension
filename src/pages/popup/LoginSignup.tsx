@@ -46,17 +46,17 @@ const LoginSignup: React.FC<LoginSignupProps> = ({
       <h1>Log In or Sign up to continue</h1>
       <p>Start now!</p>
       
-      <button 
+      {/* <button 
         className="social-login-button google"
         onClick={handleGoogleLogin}
       >
         <img src="google-icon.png" alt="Google" />
         Log In With Google
-      </button>
+      </button> */}
 
-      <div className="divider">
+      {/* <div className="divider">
         <span>or</span>
-      </div>
+      </div> */}
 
       <form onSubmit={handleEmailLogin}>
         <input
