@@ -2,21 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import { auth } from '../../utils/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { saveToStudyList, getUserData, StudyMaterial } from '../../utils/api';
+import { getUserData, saveToStudyList } from '../../utils/api';
 import LoginSignup from './LoginSignup';
-
-
-interface Topic {
-  _id?: string;
-  name: string;
-  categories: {
-    webpage: StudyMaterial[];
-    video: StudyMaterial[];
-    book: StudyMaterial[];
-    podcast: StudyMaterial[];
-  };
-  createdAt?: Date;
-}
+import { HiOutlineMicrophone } from "react-icons/hi";
+import { FiBook, FiVideo } from "react-icons/fi";
+import { MdWeb } from "react-icons/md";
+import { BsThreeDots } from "react-icons/bs";
+import { BiCategory } from "react-icons/bi";
+import { CgHome } from "react-icons/cg";
+import { User as UserModel, Topic, StudyMaterial } from '../../models/User';
 
 const getMaterialTypeFromUrl = (url: string): 'webpage' | 'video' | 'book' | 'podcast' => {
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
@@ -25,6 +19,14 @@ const getMaterialTypeFromUrl = (url: string): 'webpage' | 'video' | 'book' | 'po
     return 'book';
   }
   return 'webpage';
+};
+
+// Material type icons mapping
+const materialTypeIcons = {
+  webpage: <MdWeb />,
+  video: <FiVideo />,
+  book: <FiBook />,
+  podcast: <HiOutlineMicrophone />
 };
 
 const Popup: React.FC = () => {
@@ -41,12 +43,16 @@ const Popup: React.FC = () => {
   const [topicName, setTopicName] = useState('Topic Name');
   const [currentPage, setCurrentPage] = useState<'main' | 'login' | 'register' | 'forgot-password'>('main');
   const [selectedTopicName, setSelectedTopicName] = useState<string>('');
+  const [showNavDropdown, setShowNavDropdown] = useState(false);
+
+  const fetchUserData = getUserData;
+  const addMaterial = saveToStudyList;
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setUser(user);
       if (user) {
-        const data = await getUserData(user.uid);
+        const data = await fetchUserData(user.uid);
         setTopics(data.topics);
         if (data.topics && data.topics.length > 0) {
           const firstTopic = data.topics[0];
@@ -54,7 +60,6 @@ const Popup: React.FC = () => {
           setSelectedTopicName(firstTopic.name);
           setTopicName(firstTopic.name);
         }
-        setMaterials(data.materials || []);
       }
     });
 
@@ -145,7 +150,6 @@ const Popup: React.FC = () => {
       return;
     }
 
-    // 從 topics 中找到選中主題的 ID
     const selectedTopic = topics.find(topic => topic.name === selectedTopicName);
     if (!selectedTopic || !selectedTopic._id) {
       console.error('Selected topic not found or missing ID');
@@ -158,31 +162,21 @@ const Popup: React.FC = () => {
       url: currentUrl,
       rating: 5,
       completed: false,
-      dateAdded: new Date().toISOString()
+      dateAdded: new Date()
     };
 
     try {
-      console.log('Creating material:', material);
-      console.log('Selected topic:', selectedTopic);
-      
-      await saveToStudyList(material, selectedTopic._id);
-      console.log('Material saved successfully');
-      
-      const updatedData = await getUserData(user.uid);
-      setTopics(updatedData.topics);
-      
-      setMaterialTitle('');
-      setCurrentUrl('');
-    } catch (error) {
-      console.error('Add material failed:', {
-        error,
-        stack: error instanceof Error ? error.stack : undefined,
-        requestData: {
-          material,
-          topicId: selectedTopic._id,
-          userId: user?.uid
+      const success = await addMaterial(material, selectedTopic._id);
+      if (success) {
+        setMaterialTitle('');
+        setCurrentUrl('');
+        if (user) {
+          const data = await fetchUserData(user.uid);
+          setTopics(data.topics);
         }
-      });
+      }
+    } catch (error) {
+      console.error('Add material failed:', error);
     }
   };
 
@@ -205,16 +199,6 @@ const Popup: React.FC = () => {
     setShowTypeDropdown(false);
   };
 
-  const getMaterialIcon = (type: string) => {
-    switch(type) {
-      case 'webpage': return '🌐';
-      case 'book': return '📖';
-      case 'video': return '📹';
-      case 'podcast': return '🎧';
-      default: return '🌐';
-    }
-  };
-
   const handleTopicChange = (topic: Topic) => {
     setCurrentTopic(topic);
     setSelectedTopicName(topic.name);
@@ -235,23 +219,18 @@ const Popup: React.FC = () => {
         return (
           <div className="popup-container">
             <div className="navbar">
-              <div onClick={handleHomeClick} style={{cursor: 'pointer'}}>
-                <svg className="home-icon" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
-                </svg>
-              </div>
-              <div onClick={() => setShowDropdown(!showDropdown)} style={{position: 'relative'}}>
-                <svg className="menu-icon" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-                </svg>
-                {showDropdown && (
-                  <div className="dropdown">
+              <CgHome className="home-icon" onClick={handleHomeClick} />
+              <div className="nav-dropdown-container">
+                <BsThreeDots 
+                  className="menu-icon" 
+                  onClick={() => setShowNavDropdown(!showNavDropdown)}
+                />
+                {showNavDropdown && (
+                  <div className="nav-dropdown">
                     {user ? (
                       <button onClick={handleLogout}>Logout</button>
                     ) : (
-                      <button onClick={() => setCurrentPage('login')}>
-                        Login
-                      </button>
+                      <button onClick={() => setCurrentPage('login')}>Login</button>
                     )}
                   </div>
                 )}
@@ -259,65 +238,63 @@ const Popup: React.FC = () => {
             </div>
 
             <div className="section">
-              <div className="topic-header">
-                <div className="topic-name">
-                  <h1>{topicName}</h1>
-                  <span className="dropdown-arrow">▼</span>
-                </div>
-                <button className="edit-button">Edit</button>
-              </div>
-              <div className="add-material-container">
-                <div className="input-group">
-                  <div className="title-input-container">
-                    <div 
-                      className="plus-icon" 
-                      onClick={handleAddMaterial}
-                      style={{ cursor: user ? 'pointer' : 'not-allowed', opacity: user ? 1 : 0.5 }}
-                    >
-                      +
-                    </div>
-                    <input
-                      className="material-input"
-                      placeholder="Material Title"
-                      value={materialTitle}
-                      onChange={(e) => setMaterialTitle(e.target.value)}
-                    />
-                    <div className="material-type-selector">
-                      <div 
-                        className="globe-icon" 
-                        onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-                      >
-                        {getMaterialIcon(materialType)}
-                      </div>
-                      {showTypeDropdown && (
-                        <div className="type-dropdown">
-                          <div onClick={() => handleTypeSelect('webpage')}>🌐</div>
-                          <div onClick={() => handleTypeSelect('book')}>📖</div>
-                          <div onClick={() => handleTypeSelect('video')}>📹 </div>
-                          <div onClick={() => handleTypeSelect('podcast')}>🎧</div>
-                        </div>
-                      )}
-                    </div>
+              <div className="topic-container">
+                <div className="topic-left" onClick={() => setShowDropdown(!showDropdown)}>
+                  <h1 className="topic-title">{topicName}</h1>
+                  <div className={`dropdown-icon ${showDropdown ? 'open' : ''}`}>
+                    ▼
                   </div>
                 </div>
+                <button className="edit-button">Edit</button>
+                
+                {showDropdown && (
+                  <div className="topic-dropdown-overlay">
+                    <div className="topic-dropdown">
+                      {topics.map(topic => (
+                        <div 
+                          key={topic.name} 
+                          className={`topic-option ${selectedTopicName === topic.name ? 'selected' : ''}`}
+                          onClick={() => {
+                            handleTopicChange(topic);
+                            setShowDropdown(false);
+                          }}
+                        >
+                          {topic.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="topic-selector">
-                <select 
-                  value={selectedTopicName}
-                  onChange={(e) => {
-                    const selected = topics.find(t => t.name === e.target.value);
-                    if (selected) {
-                      handleTopicChange(selected);
-                    }
-                  }}
+              <div className="material-input-wrapper">
+                <button 
+                  className="add-icon-button"
+                  onClick={handleAddMaterial}
+                  style={{ opacity: user ? 1 : 0.5, cursor: user ? 'pointer' : 'not-allowed' }}
                 >
-                  {topics.map(topic => (
-                    <option key={topic.name} value={topic.name}>
-                      {topic.name}
-                    </option>
-                  ))}
-                </select>
+                  +
+                </button>
+                <input
+                  className="material-title-input"
+                  placeholder="Material Title"
+                  value={materialTitle}
+                  onChange={(e) => setMaterialTitle(e.target.value)}
+                />
+                <div 
+                  className="material-type-selector"
+                  onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+                >
+                  {materialTypeIcons[materialType]}
+                  {showTypeDropdown && (
+                    <div className="type-dropdown">
+                      <div onClick={() => handleTypeSelect('webpage')}>{materialTypeIcons.webpage}</div>
+                      <div onClick={() => handleTypeSelect('book')}>{materialTypeIcons.book}</div>
+                      <div onClick={() => handleTypeSelect('video')}>{materialTypeIcons.video}</div>
+                      <div onClick={() => handleTypeSelect('podcast')}>{materialTypeIcons.podcast}</div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {['webpage', 'book', 'video', 'podcast'].map(type => {
@@ -325,22 +302,19 @@ const Popup: React.FC = () => {
                 const typeCount = materials.length;
                 
                 return (
-                  <div key={type}>
-                    <div className="section-title">
-                      <span className="title-with-icon">
-                        {getMaterialIcon(type)} {type.charAt(0).toUpperCase() + type.slice(1)}
+                  <div key={type} className="material-section">
+                    <div className="material-type-header">
+                      {materialTypeIcons[type as keyof typeof materialTypeIcons]}
+                      <span className="material-type-name">
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
                       </span>
                       <span className="material-count">({typeCount})</span>
                     </div>
                     <div className="material-list">
                       {materials
-                        .sort((a, b) => {
-                          const dateA = a.dateAdded || new Date(0).toISOString();
-                          const dateB = b.dateAdded || new Date(0).toISOString();
-                          return new Date(dateB).getTime() - new Date(dateA).getTime();
-                        })
+                        .sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
                         .map((material, index) => (
-                          <div key={index} className="material-item">
+                          <div key={index} className="material-card">
                             <span 
                               className="material-link"
                               onClick={() => handleTitleClick(material.url)}

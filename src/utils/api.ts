@@ -1,7 +1,9 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
 import { auth } from './firebase';
+import { User, StudyMaterial } from '../models/User';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const API_URL = 'https://studylist-server.onrender.com';
+console.log('Using API URL:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -12,72 +14,82 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  const user = auth.currentUser;
-  if (user) {
-    const token = await user.getIdToken();
-    config.headers.set('Authorization', `Bearer ${token}`);
-    console.log('Request headers:', config.headers);
-  } else {
-    console.log('No user found when making request');
+  try {
+    console.log('Request interceptor started');
+    const user = auth.currentUser;
+    console.log('Current user:', user ? { uid: user.uid, email: user.email } : 'No user');
+    
+    if (user) {
+      console.log('Getting token for user:', user.uid);
+      const token = await user.getIdToken();
+      console.log('Token received:', token.substring(0, 10) + '...');
+      config.headers.set('Authorization', `Bearer ${token}`);
+    }
+    
+    console.log('Final request config:', {
+      url: `${config.baseURL}${config.url}`,  // 完整 URL
+      method: config.method,
+      headers: config.headers,
+    });
+    
+    return config;
+  } catch (error) {
+    console.error('Error in request interceptor:', error);
+    return Promise.reject(error);
   }
-  return config;
 });
 
-export interface StudyMaterial {
-  type: 'webpage' | 'video' | 'book' | 'podcast';
-  title: string;
-  url: string;
-  rating: number;
-  completed: boolean;
-  dateAdded: string;
-}
-
-interface Topic {
-  name: string;
-  categories: {
-    webpage: StudyMaterial[];
-    video: StudyMaterial[];
-    book: StudyMaterial[];
-    podcast: StudyMaterial[];
-  };
-}
+// Add response interceptor for debugging
+api.interceptors.response.use(
+  (response) => {
+    console.log('Response received:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data
+    });
+    return response;
+  },
+  (error) => {
+    console.error('Response error:', {
+      status: error.response?.status,
+      url: error.config?.url,
+      data: error.response?.data,
+      message: error.message
+    });
+    return Promise.reject(error);
+  }
+);
 
 export const getUserData = async (uid: string) => {
   try {
-    console.log('Attempting to connect to backend at:', API_URL);
+    console.log('=== getUserData Started ===');
     console.log('Fetching user data for UID:', uid);
-    const response = await api.get(`/users/${uid}`);
-    console.log('Backend response:', response.data);
-    return response.data;
-  } catch (error: unknown) {
-    console.error('Backend connection details:', {
-      url: API_URL,
-      error: (error as Error).message,
-      response: (error as any).response?.data
+    console.log('Current auth state:', auth.currentUser ? 'Logged in' : 'Not logged in');
+    
+    const response = await api.get(`/api/users/${uid}`);
+    console.log('User data response:', {
+      status: response.status,
+      topics: response.data.topics?.length || 0,
+      data: response.data
     });
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      console.log('User not found, creating new user...');
-      const user = auth.currentUser;
-      if (user) {
-        const newUser = {
-          email: user.email,
-          name: user.displayName,
-          firebaseUID: user.uid,
-          bio: "Introduce yourself",
-          topics: [{
-            name: "Default Topic",
-            categories: {
-              webpage: [],
-              video: [],
-              book: [],
-              podcast: []
-            }
-          }],
-          contributions: []
-        };
-        const response = await api.post('/users', newUser);
-        return response.data;
-      }
+    
+    return response.data;
+  } catch (error) {
+    console.log('=== getUserData Error ===');
+    if (axios.isAxiosError(error)) {
+      console.error('API Error Details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+    } else {
+      console.error('Non-Axios Error:', error);
     }
     throw error;
   }
@@ -85,41 +97,134 @@ export const getUserData = async (uid: string) => {
 
 export const saveToStudyList = async (material: StudyMaterial, topicId: string) => {
   try {
+    console.log('=== saveToStudyList Started ===');
+    console.log('Input parameters:', { material, topicId });
+    
     const user = auth.currentUser;
-    if (!user) {
-      throw new Error('No user logged in');
-    }
+    console.log('Current user:', user ? { uid: user.uid } : 'No user');
+    
+    if (!user) throw new Error('No user logged in');
 
-    const endpoint = `/users/${encodeURIComponent(user.uid)}/topics/${encodeURIComponent(topicId)}/materials`;
+    const endpoint = `/api/users/${user.uid}/topics/${topicId}/materials`;
+    console.log('Endpoint:', endpoint);
+    console.log('Full URL:', `${API_URL}${endpoint}`);
     
     const materialPayload = {
       type: material.type,
       title: material.title,
-      url: material.url,
+      url: material.url || '',
       rating: material.rating || 5,
-      completed: material.completed || false,
-      dateAdded: material.dateAdded
+      dateAdded: new Date().toISOString(),
+      completed: false
     };
 
-    console.log('Request details:', {
-      endpoint,
-      materialPayload
+    console.log('Material payload:', materialPayload);
+
+    const token = await user.getIdToken();
+    console.log('Token obtained');
+    
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(materialPayload)
+    });
+
+    console.log('Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Server error response:', errorData);
+      throw new Error(`Failed to add material: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Save material response:', {
+      status: response.status,
+      data: data
     });
     
-    const response = await api.post(endpoint, materialPayload);
+    return data;
+  } catch (error) {
+    console.log('=== saveToStudyList Error ===');
+    console.error('Error saving material:', error);
+    throw error;
+  }
+};
 
-    if (response.status !== 200) {
-      throw new Error(`API Error: ${response.status}`);
+// 輔助函數：根據 ID 獲取 topic
+const getUserTopic = async (uid: string, topicId: string) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('No user logged in');
+  
+  const token = await user.getIdToken();
+  const response = await fetch(
+    `${API_URL}/api/users/${uid}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
     }
-    
+  );
+
+  if (!response.ok) {
+    console.error('Failed to fetch user data:', response.status);
+    throw new Error(`Failed to fetch user data: ${response.status}`);
+  }
+
+  const userData = await response.json();
+  console.log('User data received:', userData);
+  return userData.topics?.find((t: any) => t._id === topicId);
+};
+
+// 新增輔助函數來獲取 topic 資訊
+const fetchTopicById = async (topicId: string) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('No user logged in');
+  
+  const response = await api.get(`/users/${user.uid}`);
+  const topic = response.data.topics.find((t: any) => t._id === topicId);
+  return topic;
+};
+
+export const updateProfile = async (data: { name: string; bio: string; photoURL?: string }) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error('No user logged in');
+
+    const response = await api.put(`/users/${user.uid}/profile`, data);
     return response.data;
   } catch (error) {
-    console.error('API call details:', {
-      error,
-      endpoint: API_URL,
-      material,
-      topicId
-    });
+    console.error('Error updating profile:', error);
+    throw error;
+  }
+};
+
+export const updateTopicName = async (topicId: string, name: string) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error('No user logged in');
+
+    const response = await api.put(`/users/${user.uid}/topics/${topicId}`, { name });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating topic name:', error);
+    throw error;
+  }
+};
+
+export const addTopic = async (name: string) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error('No user logged in');
+
+    const response = await api.post(`/users/${user.uid}/topics`, { name });
+    return response.data;
+  } catch (error) {
+    console.error('Error adding topic:', error);
     throw error;
   }
 };

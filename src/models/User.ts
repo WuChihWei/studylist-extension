@@ -1,5 +1,40 @@
 import mongoose from 'mongoose';
 
+interface StudyMaterial {
+  type: 'webpage' | 'video' | 'book' | 'podcast';
+  title: string;
+  url: string;
+  rating?: number;
+  completed?: boolean;
+  dateAdded: Date;
+  topicName?: string;
+}
+
+interface Categories {
+  webpage: StudyMaterial[];
+  video: StudyMaterial[];
+  book: StudyMaterial[];
+  podcast: StudyMaterial[];
+}
+
+interface Topic {
+  _id?: string;
+  name: string;
+  categories: Categories;
+  createdAt?: Date;
+}
+
+interface User {
+  firebaseUID: string;
+  name: string;
+  email: string;
+  bio: string;
+  topics: Topic[];
+  createdAt?: Date;
+}
+
+export type { User, Topic, Categories, StudyMaterial };
+
 const materialSchema = new mongoose.Schema({
   type: {
     type: String,

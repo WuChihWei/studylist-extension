@@ -4,12 +4,12 @@
   "version": "1.0.0",
   "description": "Save study materials directly from web pages to your StudyList account",
    "permissions": [
-    "storage",
     "activeTab",
-    "tabs"
+    "storage",
+    "https://studylist-server.onrender.com/*"
   ],
   "host_permissions": [
-    "http://localhost:3001/*"
+    "https://studylist-server.onrender.com/*"
   ],
   "background": {
     "service_worker": "background.js",
