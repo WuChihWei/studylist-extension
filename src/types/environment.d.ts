@@ -8,5 +8,6 @@ declare namespace NodeJS {
     FIREBASE_MESSAGING_SENDER_ID: string;
     FIREBASE_APP_ID: string;
     FIREBASE_CLIENT_ID: string;
+    REACT_APP_WEBSITE_URL: string;
   }
 } 

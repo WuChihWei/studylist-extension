@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../utils/firebase';
 
 interface LoginSignupProps {
   onClose: () => void;
   onRegisterClick: () => void;
   onForgotPasswordClick: () => void;
+}
+
+interface User {
+  email: string;
+  uid: string;
 }
 
 const LoginSignup: React.FC<LoginSignupProps> = ({ 
@@ -16,26 +21,25 @@ const LoginSignup: React.FC<LoginSignupProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [user, setUser] = useState<User | null>(null);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // 使用 Firebase Auth 進行登入
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      if (userCredential.user) {
-        onClose();
-      }
-    } catch (error: any) {
-      setError(error.message);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      if (result.user) {
-        onClose();
-      }
+      const token = await userCredential.user.getIdToken();
+      
+      // 儲存 token 到 chrome.storage
+      chrome.storage.local.set({
+        authToken: token,
+        user: {
+          email: userCredential.user.email,
+          uid: userCredential.user.uid
+        }
+      });
+      
+      onClose();
     } catch (error: any) {
       setError(error.message);
     }

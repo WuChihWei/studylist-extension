@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import { auth } from '../../utils/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getUserData, saveToStudyList } from '../../utils/api';
+import { fetchUserData, saveToStudyList } from '../../utils/api';
 import LoginSignup from './LoginSignup';
 import { HiOutlineMicrophone } from "react-icons/hi";
 import { FiBook, FiVideo } from "react-icons/fi";
@@ -11,6 +11,7 @@ import { BsThreeDots } from "react-icons/bs";
 import { BiCategory } from "react-icons/bi";
 import { CgHome } from "react-icons/cg";
 import { User as UserModel, Topic, StudyMaterial } from '../../models/User';
+import { ENDPOINTS } from '../../config/endpoints';
 
 const getMaterialTypeFromUrl = (url: string): 'webpage' | 'video' | 'book' | 'podcast' => {
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
@@ -45,20 +46,35 @@ const Popup: React.FC = () => {
   const [selectedTopicName, setSelectedTopicName] = useState<string>('');
   const [showNavDropdown, setShowNavDropdown] = useState(false);
 
-  const fetchUserData = getUserData;
   const addMaterial = saveToStudyList;
+
+  useEffect(() => {
+    // 從 chrome.storage 獲取用戶信息
+    chrome.storage.local.get(['user'], (result) => {
+      if (result.user) {
+        setUser(result.user);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setUser(user);
       if (user) {
-        const data = await fetchUserData(user.uid);
-        setTopics(data.topics);
-        if (data.topics && data.topics.length > 0) {
-          const firstTopic = data.topics[0];
-          setCurrentTopic(firstTopic);
-          setSelectedTopicName(firstTopic.name);
-          setTopicName(firstTopic.name);
+        try {
+          const data = await fetchUserData(user.uid);
+          if (data && data.topics) {
+            setTopics(data.topics);
+            if (data.topics.length > 0) {
+              const firstTopic = data.topics[0];
+              setCurrentTopic(firstTopic);
+              setSelectedTopicName(firstTopic.name);
+              setTopicName(firstTopic.name);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          // Handle error appropriately (maybe show an error message to user)
         }
       }
     });
@@ -136,7 +152,7 @@ const Popup: React.FC = () => {
   }, []);
 
   const handleHomeClick = () => {
-    window.open('http://localhost:3000/profile', '_blank');
+    window.open(`${ENDPOINTS.WEBSITE_BASE}/profile`, '_blank');
   };
 
   const handleAddMaterial = async () => {
@@ -191,8 +207,16 @@ const Popup: React.FC = () => {
 
   const handleLogout = async () => {
     try {
+      // 先登出 Firebase
       await signOut(auth);
-      setShowDropdown(false);
+      
+      // 清除本地存儲的 token
+      chrome.storage.local.remove(['authToken', 'user'], () => {
+        setUser(null);  // 清除用戶狀態
+        setTopics([]); // 清除主題列表
+        setCurrentTopic(null); // 清除當前主題
+        setShowDropdown(false);
+      });
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -220,8 +244,8 @@ const Popup: React.FC = () => {
         return (
           <LoginSignup 
             onClose={() => setCurrentPage('main')}
-            onRegisterClick={() => chrome.tabs.create({ url: 'http://localhost:3000/register' })}
-            onForgotPasswordClick={() => chrome.tabs.create({ url: 'http://localhost:3000/forgot-password' })}
+            onRegisterClick={() => chrome.tabs.create({ url: `${ENDPOINTS.WEBSITE_BASE}/register` })}
+            onForgotPasswordClick={() => chrome.tabs.create({ url: `${ENDPOINTS.WEBSITE_BASE}/forgot-password` })}
           />
         );
       default:

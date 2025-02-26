@@ -7,6 +7,10 @@
     "activeTab",
     "storage"
   ],
+  "host_permissions": [
+    "https://studylistserver-production.up.railway.app/api/*",
+    "https://identitytoolkit.googleapis.com/v1/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -31,6 +35,7 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://studylistserver-production.up.railway.app https://identitytoolkit.googleapis.com;",
+    "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self';"
   }
 } 

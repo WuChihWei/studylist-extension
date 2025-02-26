@@ -1,37 +1,23 @@
-import axios, { InternalAxiosRequestConfig } from 'axios';
+import axios from 'axios';
+import { ENDPOINTS } from '../config/endpoints';
 import { auth } from './firebase';
 import { User, StudyMaterial } from '../models/User';
 
-const API_URL = 'https://studylistserver-production.up.railway.app';
-console.log('Using API URL:', API_URL);
-
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: ENDPOINTS.API_BASE,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add auth token to requests
-api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+// Add request interceptor for Firebase token
+api.interceptors.request.use(async (config) => {
   try {
-    console.log('Request interceptor started');
     const user = auth.currentUser;
-    console.log('Current user:', user ? { uid: user.uid, email: user.email } : 'No user');
-    
     if (user) {
-      console.log('Getting token for user:', user.uid);
       const token = await user.getIdToken();
-      console.log('Token received:', token.substring(0, 10) + '...');
-      config.headers.set('Authorization', `Bearer ${token}`);
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    console.log('Final request config:', {
-      url: `${config.baseURL}${config.url}`,  // 完整 URL
-      method: config.method,
-      headers: config.headers,
-    });
-    
     return config;
   } catch (error) {
     console.error('Error in request interceptor:', error);
@@ -39,98 +25,46 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   }
 });
 
-// Add response interceptor for debugging
+// Add response interceptor for error handling
 api.interceptors.response.use(
-  (response) => {
-    console.log('Response received:', {
-      status: response.status,
-      url: response.config.url,
-      data: response.data
-    });
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.error('Response error:', {
-      status: error.response?.status,
-      url: error.config?.url,
-      data: error.response?.data,
-      message: error.message
-    });
+    console.error('Response error:', error.response || error);
     return Promise.reject(error);
   }
 );
 
-export const getUserData = async (uid: string) => {
-  try {
-    console.log('=== getUserData Started ===');
-    console.log('Fetching user data for UID:', uid);
-    console.log('Current auth state:', auth.currentUser ? 'Logged in' : 'Not logged in');
-    
-    const response = await api.get(`/api/users/${uid}`);
-    console.log('User data response:', {
-      status: response.status,
-      topics: response.data.topics?.length || 0,
-      data: response.data
+async function getAuthToken(): Promise<string | null> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['authToken'], (result) => {
+      resolve(result.authToken || null);
     });
-    
+  });
+}
+
+export const fetchUserData = async (uid: string) => {
+  try {
+    const response = await api.get(`/api/users/${uid}`);
     return response.data;
   } catch (error) {
-    console.log('=== getUserData Error ===');
-    if (axios.isAxiosError(error)) {
-      console.error('API Error Details:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers
-        }
-      });
-    } else {
-      console.error('Non-Axios Error:', error);
-    }
+    console.error('Error fetching user data:', error);
     throw error;
   }
 };
 
 export const saveToStudyList = async (material: StudyMaterial, topicId: string) => {
   try {
-    console.log('=== saveToStudyList Started ===');
-    console.log('Input parameters:', { material, topicId });
-    
     const user = auth.currentUser;
-    console.log('Current user:', user ? { uid: user.uid } : 'No user');
-    
     if (!user) throw new Error('No user logged in');
 
-    const endpoint = `/api/users/${user.uid}/topics/${topicId}/materials`;
-    console.log('Endpoint:', endpoint);
-    
-    const materialPayload = {
-      type: material.type,
-      title: material.title,
-      url: material.url || '',
-      rating: material.rating || 5,
-      dateAdded: new Date().toISOString(),
-      completed: false
-    };
-
-    console.log('Material payload:', materialPayload);
-    
-    const response = await api.post(endpoint, materialPayload);
-    
-    console.log('Save material response:', {
-      status: response.status,
-      data: response.data
-    });
-    
+    const response = await api.post(
+      `/api/users/${user.uid}/topics/${topicId}/materials`,
+      material
+    );
     return response.data;
   } catch (error) {
-    console.log('=== saveToStudyList Error ===');
     console.error('Error saving material:', error);
-    throw error;
+    return false;
   }
 };
 
