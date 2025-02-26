@@ -2,7 +2,7 @@ import axios, { InternalAxiosRequestConfig } from 'axios';
 import { auth } from './firebase';
 import { User, StudyMaterial } from '../models/User';
 
-const API_URL = 'https://studylist-server.onrender.com';
+const API_URL = 'https://studylistserver-production.up.railway.app';
 console.log('Using API URL:', API_URL);
 
 const api = axios.create({
@@ -107,7 +107,6 @@ export const saveToStudyList = async (material: StudyMaterial, topicId: string) 
 
     const endpoint = `/api/users/${user.uid}/topics/${topicId}/materials`;
     console.log('Endpoint:', endpoint);
-    console.log('Full URL:', `${API_URL}${endpoint}`);
     
     const materialPayload = {
       type: material.type,
@@ -119,34 +118,15 @@ export const saveToStudyList = async (material: StudyMaterial, topicId: string) 
     };
 
     console.log('Material payload:', materialPayload);
-
-    const token = await user.getIdToken();
-    console.log('Token obtained');
     
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(materialPayload)
-    });
-
-    console.log('Response status:', response.status);
+    const response = await api.post(endpoint, materialPayload);
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Server error response:', errorData);
-      throw new Error(`Failed to add material: ${response.status}`);
-    }
-
-    const data = await response.json();
     console.log('Save material response:', {
       status: response.status,
-      data: data
+      data: response.data
     });
     
-    return data;
+    return response.data;
   } catch (error) {
     console.log('=== saveToStudyList Error ===');
     console.error('Error saving material:', error);
@@ -159,25 +139,9 @@ const getUserTopic = async (uid: string, topicId: string) => {
   const user = auth.currentUser;
   if (!user) throw new Error('No user logged in');
   
-  const token = await user.getIdToken();
-  const response = await fetch(
-    `${API_URL}/api/users/${uid}`,
-    {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
-
-  if (!response.ok) {
-    console.error('Failed to fetch user data:', response.status);
-    throw new Error(`Failed to fetch user data: ${response.status}`);
-  }
-
-  const userData = await response.json();
-  console.log('User data received:', userData);
-  return userData.topics?.find((t: any) => t._id === topicId);
+  const response = await api.get(`/api/users/${uid}`);
+  console.log('User data received:', response.data);
+  return response.data.topics?.find((t: any) => t._id === topicId);
 };
 
 // 新增輔助函數來獲取 topic 資訊

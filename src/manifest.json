@@ -3,13 +3,9 @@
   "name": "StudyList Extension",
   "version": "1.0.0",
   "description": "Save study materials directly from web pages to your StudyList account",
-   "permissions": [
+  "permissions": [
     "activeTab",
-    "storage",
-    "https://studylist-server.onrender.com/*"
-  ],
-  "host_permissions": [
-    "https://studylist-server.onrender.com/*"
+    "storage"
   ],
   "background": {
     "service_worker": "background.js",
@@ -34,13 +30,6 @@
       "js": ["content.js"]
     }
   ],
-  "oauth2": {
-    "client_id": "${FIREBASE_CLIENT_ID}",
-    "scopes": [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile"
-    ]
-  },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   }
