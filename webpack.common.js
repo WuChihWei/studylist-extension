@@ -45,14 +45,20 @@ module.exports = {
       patterns: [
         { 
           from: path.resolve('src/manifest.json'),
-          to: path.resolve('dist'),
+          to: path.resolve('dist/manifest.json'),
           transform(content) {
             return content
               .toString()
               .replace('${FIREBASE_CLIENT_ID}', process.env.FIREBASE_CLIENT_ID);
           },
         },
-        { from: path.resolve('public'), to: path.resolve('dist') },
+        { 
+          from: path.resolve('public'),
+          to: path.resolve('dist'),
+          globOptions: {
+            ignore: ['**/manifest.json']
+          }
+        },
       ]
     }),
     new HtmlPlugin({

@@ -7,6 +7,9 @@
     "activeTab",
     "storage"
   ],
+  "optional_permissions": [
+    "tabs"
+  ],
   "host_permissions": [
     "https://studylistserver-production.up.railway.app/api/*",
     "https://identitytoolkit.googleapis.com/v1/*"

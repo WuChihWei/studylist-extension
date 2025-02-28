@@ -5,13 +5,14 @@ import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { fetchUserData, saveToStudyList } from '../../utils/api';
 import LoginSignup from './LoginSignup';
 import { HiOutlineMicrophone } from "react-icons/hi";
-import { FiBook, FiVideo } from "react-icons/fi";
+import { FiBook, FiVideo, FiLogOut, FiShield, FiLogIn } from "react-icons/fi";
 import { MdWeb } from "react-icons/md";
 import { BsThreeDots } from "react-icons/bs";
 import { BiCategory } from "react-icons/bi";
 import { CgHome } from "react-icons/cg";
 import { User as UserModel, Topic, StudyMaterial } from '../../models/User';
 import { ENDPOINTS } from '../../config/endpoints';
+import PrivacyPolicy from './PrivacyPolicy';
 
 const getMaterialTypeFromUrl = (url: string): 'webpage' | 'video' | 'book' | 'podcast' => {
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
@@ -42,7 +43,7 @@ const Popup: React.FC = () => {
   const [pageInfo, setPageInfo] = useState<{ title: string; url: string } | null>(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [topicName, setTopicName] = useState('Topic Name');
-  const [currentPage, setCurrentPage] = useState<'main' | 'login' | 'register' | 'forgot-password'>('main');
+  const [currentPage, setCurrentPage] = useState<'main' | 'login' | 'register' | 'forgot-password' | 'privacy-policy'>('main');
   const [selectedTopicName, setSelectedTopicName] = useState<string>('');
   const [showNavDropdown, setShowNavDropdown] = useState(false);
 
@@ -50,9 +51,24 @@ const Popup: React.FC = () => {
 
   useEffect(() => {
     // 從 chrome.storage 獲取用戶信息
-    chrome.storage.local.get(['user'], (result) => {
+    chrome.storage.local.get(['user'], async (result) => {
       if (result.user) {
         setUser(result.user);
+        
+        // 載入用戶數據
+        try {
+          const data = await fetchUserData(result.user.uid);
+          setTopics(data.topics);
+        } catch (error) {
+          console.error('Error loading user data:', error instanceof Error ? error.message : error);
+          // 如果是認證錯誤，清除登入狀態
+          if (error instanceof Error && error.message.includes('401')) {
+            chrome.storage.local.remove(['authToken', 'user'], () => {
+              setUser(null);
+              setTopics([]);
+            });
+          }
+        }
       }
     });
   }, []);
@@ -238,13 +254,19 @@ const Popup: React.FC = () => {
     setTopicName(topic.name);
   };
 
+  const handlePrivacyPolicyClick = () => {
+    setCurrentPage('privacy-policy');
+  };
+
   const renderContent = () => {
     switch (currentPage) {
+      case 'privacy-policy':
+        return <PrivacyPolicy onBack={() => setCurrentPage('main')} />;
       case 'login':
         return (
           <LoginSignup 
             onClose={() => setCurrentPage('main')}
-            onRegisterClick={() => chrome.tabs.create({ url: `${ENDPOINTS.WEBSITE_BASE}/register` })}
+            onRegisterClick={() => chrome.tabs.create({ url: `${ENDPOINTS.WEBSITE_BASE}/signup` })}
             onForgotPasswordClick={() => chrome.tabs.create({ url: `${ENDPOINTS.WEBSITE_BASE}/forgot-password` })}
           />
         );
@@ -261,9 +283,27 @@ const Popup: React.FC = () => {
                 {showNavDropdown && (
                   <div className="nav-dropdown">
                     {user ? (
-                      <button onClick={handleLogout}>Logout</button>
+                      <>
+                        <button onClick={handleLogout}>
+                          <FiLogOut className="dropdown-icon" />
+                          Logout
+                        </button>
+                        <button onClick={handlePrivacyPolicyClick}>
+                          <FiShield className="dropdown-icon" />
+                          Privacy Policy
+                        </button>
+                      </>
                     ) : (
-                      <button onClick={() => setCurrentPage('login')}>Login</button>
+                      <>
+                        <button onClick={() => setCurrentPage('login')}>
+                          <FiLogIn className="dropdown-icon" />
+                          Login
+                        </button>
+                        <button onClick={handlePrivacyPolicyClick}>
+                          <FiShield className="dropdown-icon" />
+                          Privacy Policy
+                        </button>
+                      </>
                     )}
                   </div>
                 )}

@@ -25,12 +25,19 @@ window.onerror = function(
   colno?: number,
   error?: Error
 ) {
-  console.error('Global error:', {
-    event,
-    source,
-    lineno,
-    colno,
-    error
+  // 移除敏感資訊
+  const sanitizedError = {
+    type: error?.name || 'Error',
+    message: error?.message || 'An unknown error occurred',
+    location: source ? `${source.split('/').pop()}:${lineno}:${colno}` : 'unknown'
+  };
+  
+  console.error('Extension error:', sanitizedError);
+  
+  // 向用戶顯示友善的錯誤訊息
+  chrome.runtime.sendMessage({
+    type: 'SHOW_ERROR',
+    error: 'Something went wrong. Please try again later.'
   });
 };
 
