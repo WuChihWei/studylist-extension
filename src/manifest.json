@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StudyList Extension",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Save study materials directly from web pages to your StudyList account",
   "permissions": [
     "activeTab",

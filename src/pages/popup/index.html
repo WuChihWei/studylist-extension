@@ -4,7 +4,43 @@
     <meta charset="UTF-8" />
     <title>StudyList Extension</title>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+      /* 移除远程 Google Fonts 导入 */
+      /* 改用本地字体 */
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 400;
+        src: url('/fonts/inter/Inter-Regular.woff2') format('woff2');
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 500;
+        src: url('/fonts/inter/Inter-Medium.woff2') format('woff2');
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 600;
+        src: url('/fonts/inter/Inter-SemiBold.woff2') format('woff2');
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 700;
+        src: url('/fonts/inter/Inter-Bold.woff2') format('woff2');
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 800;
+        src: url('/fonts/inter/Inter-ExtraBold.woff2') format('woff2');
+        font-display: swap;
+      }
 
       body {
         width: 350px;
@@ -649,9 +685,8 @@
         margin-bottom: 16px;
       }
 
-      .material-list {
-        /* padding: 0 8px; */
-      }
+      /* 注意：移除了空的 .material-list 规则集，避免CSS lint警告 */
+      /* 如果需要添加 padding，请使用实际的CSS属性而不是注释 */
 
       .material-card {
         padding: 12px;

@@ -9,5 +9,7 @@ declare namespace NodeJS {
     FIREBASE_APP_ID: string;
     FIREBASE_CLIENT_ID: string;
     REACT_APP_WEBSITE_URL: string;
+    FIREBASE_CLIENT_EMAIL: string;
+    FIREBASE_PRIVATE_KEY: string;
   }
 } 
